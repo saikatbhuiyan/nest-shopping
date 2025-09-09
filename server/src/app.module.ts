@@ -9,9 +9,10 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
 import { CommonModule } from './common/common.module';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { WrapResponseInterceptor } from './common/interceptors/wrap-response.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 @Module({
   imports: [
@@ -73,6 +74,10 @@ import { WrapResponseInterceptor } from './common/interceptors/wrap-response.int
     {
       provide: APP_INTERCEPTOR,
       useClass: WrapResponseInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
     },
   ],
 })
