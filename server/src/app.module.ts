@@ -11,6 +11,7 @@ import { DatabaseModule } from './database/database.module';
 import { CommonModule } from './common/common.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { WrapResponseInterceptor } from './common/interceptors/wrap-response.interceptor';
 
 @Module({
   imports: [
@@ -68,6 +69,10 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: WrapResponseInterceptor,
     },
   ],
 })
