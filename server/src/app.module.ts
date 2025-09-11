@@ -13,6 +13,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { WrapResponseInterceptor } from './common/interceptors/wrap-response.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
     }),
     DatabaseModule,
     CommonModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

@@ -8,10 +8,17 @@ export interface DatabaseConfig {
 
 export interface JwtConfig {
   secret: string;
-  tokenAudience?: string;
-  tokenIssuer?: string;
+  tokenAudience: string;
+  tokenIssuer: string;
   accessTokenTtl: number;
   refreshTokenTtl: number;
+}
+
+export interface RedisConfig {
+  host: number;
+  post: number;
+  username?: string;
+  password?: string;
 }
 
 export interface AppConfig {
@@ -19,4 +26,5 @@ export interface AppConfig {
   environment: string;
   database: DatabaseConfig;
   jwt: JwtConfig;
+  redis: RedisConfig;
 }
