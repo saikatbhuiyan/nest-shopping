@@ -16,7 +16,7 @@ export interface ActiveUserData {
   /**
    *  The subject's (user) role.
    **/
-  role?: Role;
+  role?: Role[];
 }
 
 export interface RefreshTokenPayload {
@@ -32,6 +32,8 @@ export interface RefreshTokenPayload {
   email: string;
 
   refreshTokenId: string;
+
+  deviceId: string;
 }
 
 export interface AuthenticatedRequest extends Request {

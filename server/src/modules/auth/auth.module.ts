@@ -11,10 +11,13 @@ import { AccessTokenGuard } from './authentication/guards/access-token/access-to
 import { AuthenticationGuard } from './authentication/guards/authentication/authentication.guard';
 import { RefreshTokenIdsStorage } from './authentication/refresh-token-ids.storage';
 import { RolesGuard } from './authorization/guards/roles/roles.guard';
+import { AuthAuditService } from './authentication/auth-audit.service';
+import { RefreshTokenBlacklist } from './authentication/refresh-token-black-list.storage';
+import { AuthAudit } from './entities/auth-audit.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, AuthAudit]),
     // JwtModule.registerAsync(appConfig['jwt'].asProvider()),
   ],
   providers: [
@@ -32,8 +35,10 @@ import { RolesGuard } from './authorization/guards/roles/roles.guard';
     },
     AccessTokenGuard,
     RefreshTokenIdsStorage,
+    RefreshTokenBlacklist,
     AuthenticationService,
     JwtService,
+    AuthAuditService,
   ],
   controllers: [AuthenticationController],
 })

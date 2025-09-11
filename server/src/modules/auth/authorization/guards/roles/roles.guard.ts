@@ -3,8 +3,10 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { ROLES_KEY } from '../../decorators/roles.decorator';
 import { Role } from '../../../../users/enums/role.enum';
-import { ActiveUserData } from 'src/modules/auth/interface/active-user-data-interface';
-import { REQUEST_USER_KEY } from 'src/modules/auth/iam.constants';
+import {
+  ActiveUserData,
+  AuthenticatedRequest,
+} from 'src/modules/auth/interface/active-user-data-interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -22,9 +24,10 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const user: ActiveUserData = context.switchToHttp().getRequest()[
-      REQUEST_USER_KEY
-    ];
-    return contextRoles.some((role) => user.role === role);
+    const user: ActiveUserData = context
+      .switchToHttp()
+      .getRequest<AuthenticatedRequest>().user;
+
+    return contextRoles.some((role) => user.role.includes(role));
   }
 }

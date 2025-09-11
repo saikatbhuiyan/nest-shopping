@@ -1,24 +1,18 @@
-import { SignInDto } from './dto/sign-in.dto';
-import { SignUpDto } from './dto/sign-up.dto';
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../../users/entities/user.entity';
 import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { HashingService } from '../hashing/hashing.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import {
-  ActiveUserData,
-  RefreshTokenPayload,
-} from '../interface/active-user-data-interface';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
 import { randomUUID } from 'crypto';
-import { PG_UNIQUE_VIOLATION_ERROR_CODE } from 'src/common/constants/app.constants';
+import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
+import { RefreshTokenBlacklist } from './refresh-token-black-list.storage';
+import { AuthAuditService } from './auth-audit.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignOutDto } from './dto/sign-out.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { Role } from 'src/modules/users/enums/role.enum';
 import { InvalidateRefreshTokenError } from 'src/common/errors/extend.error';
 
 @Injectable()
@@ -30,140 +24,127 @@ export class AuthenticationService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly refreshTokenIdsStorage: RefreshTokenIdsStorage,
+    private readonly refreshTokenBlacklist: RefreshTokenBlacklist,
+    private readonly auditService: AuthAuditService,
   ) {}
 
-  async signUp(signUpDto: SignUpDto) {
-    const { email, password, ...others } = signUpDto;
+  /**
+   * Sign in user with password validation
+   */
+  async signIn(signInDto: SignInDto, ip?: string) {
+    const { email, password, deviceId } = signInDto;
 
-    try {
-      const existingUser = await this.usersRepository.findOne({
-        where: { email },
-      });
+    const user = await this.usersRepository.findOneBy({ email });
+    if (!user) throw new UnauthorizedException('User does not exist');
 
-      if (existingUser) {
-        throw new ConflictException('Email already registered');
-      }
-
-      const user = this.usersRepository.create({
-        email,
-        password: await this.hashingService.hash(password),
-        ...others,
-      });
-
-      const savedUser = await this.usersRepository.save(user);
-      return savedUser;
-    } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code: string }).code === PG_UNIQUE_VIOLATION_ERROR_CODE
-      ) {
-        throw new ConflictException('Email already registered');
-      }
-
-      throw error;
-    }
-  }
-
-  async signIn(signInDto: SignInDto) {
-    const user = await this.usersRepository.findOneBy({
-      email: signInDto.email,
-    });
-    if (!user) {
-      throw new UnauthorizedException('User does not exists');
-    }
-
+    // Password validation
     if (user.password) {
-      const isEqual = await this.hashingService.compare(
-        signInDto.password,
+      const isValid = await this.hashingService.compare(
+        password,
         user.password,
       );
-      if (!isEqual) {
-        throw new UnauthorizedException('Credentials not valid!');
+      if (!isValid) {
+        await this.auditService.logSignInAttempt(null, ip, deviceId, false);
+        throw new UnauthorizedException('Invalid credentials');
       }
     }
 
-    return await this.generateToken(user);
+    const tokens = await this.generateTokens(user, deviceId);
+
+    await this.auditService.logSignInAttempt(user.id, ip, deviceId, true);
+    return tokens;
   }
 
-  async generateToken(user: User) {
+  /**
+   * Generate access + refresh tokens (per-device)
+   */
+  async generateTokens(user: User, deviceId: string) {
     const refreshTokenId = randomUUID();
+
     const [accessToken, refreshToken] = await Promise.all([
-      this.signToken<Partial<ActiveUserData>>(
-        user.id,
-        this.configService.get('jwt.accessTokenTtl'),
-        {
-          email: user.email,
-        },
+      this.jwtService.signAsync(
+        { id: user.id, email: user.email, roles: [Role.Admin] },
+        { expiresIn: this.configService.get<number>('jwt.accessTokenTtl') },
       ),
-      this.signToken<Partial<RefreshTokenPayload>>(
-        user.id,
-        this.configService.get('jwt.refreshTokenTtl'),
-        { refreshTokenId },
+      this.jwtService.signAsync(
+        { refreshTokenId, deviceId },
+        { expiresIn: this.configService.get<number>('jwt.refreshTokenTtl') },
       ),
     ]);
-    console.log(user.id, refreshTokenId);
-    await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId);
-    return {
-      accessToken,
-      refreshToken,
-    };
+
+    // Store refresh token in Redis (per-device)
+    await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId, deviceId);
+
+    // Audit log
+    await this.auditService.logTokenGeneration(
+      user.id,
+      deviceId,
+      refreshTokenId,
+    );
+
+    return { accessToken, refreshToken };
   }
 
+  /**
+   * Refresh tokens (per-device rotation + blacklist)
+   */
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
+    const { refreshToken, deviceId } = refreshTokenDto;
+
     try {
-      const { sub, refreshTokenId } = await this.jwtService.verifyAsync<
-        Pick<RefreshTokenPayload, 'sub'> & { refreshTokenId: string }
-      >(refreshTokenDto.refreshToken, {
+      const payload = await this.jwtService.verifyAsync<{
+        sub: number;
+        refreshTokenId: string;
+        deviceId: string;
+      }>(refreshToken, {
         secret: this.configService.get('jwt.secret'),
         audience: this.configService.get('jwt.tokenAudience'),
         issuer: this.configService.get('jwt.tokenIssuer'),
       });
 
-      const user = await this.usersRepository.findOneByOrFail({ id: sub });
+      // Check if token is blacklisted
+      if (
+        await this.refreshTokenBlacklist.isBlacklisted(payload.refreshTokenId)
+      ) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      // Validate token in Redis (per-device)
+      const user = await this.usersRepository.findOneByOrFail({
+        id: payload.sub,
+      });
       const isValid = await this.refreshTokenIdsStorage.validate(
         user.id,
-        refreshTokenId,
+        payload.refreshTokenId,
+        deviceId,
       );
-      if (!isValid) {
-        throw new Error('Refresh token is invalid');
-      }
-      await this.refreshTokenIdsStorage.invalidate(user.id);
-      return this.generateToken(user);
+      if (!isValid) throw new InvalidateRefreshTokenError();
+
+      // Invalidate old refresh token
+      await this.refreshTokenIdsStorage.invalidate(user.id, deviceId);
+      await this.refreshTokenBlacklist.blacklistToken(payload.refreshTokenId);
+
+      // Generate new tokens
+      return this.generateTokens(user, deviceId);
     } catch (error) {
       if (error instanceof InvalidateRefreshTokenError) {
-        // Take action: notify user that the refresh token might have been stolen?
-        throw new UnauthorizedException('Access denied');
+        throw new UnauthorizedException('Invalid refresh token');
       }
-      throw new UnauthorizedException(error);
+      throw new UnauthorizedException(error || 'Unauthorized');
     }
   }
 
-  async signToken<T extends object>(
-    userId: number,
-    expiresIn: number,
-    payload?: T,
-  ): Promise<string> {
-    if (userId && expiresIn) {
-      const audience = this.configService.get<string>('jwt.tokenAudience');
-      const issuer = this.configService.getOrThrow<string>('jwt.tokenIssuer');
-      const secret = this.configService.getOrThrow<string>('jwt.secret');
-      return await this.jwtService.signAsync(
-        {
-          sub: userId,
-          ...(payload ?? {}), // safe spread
-        },
-        {
-          audience,
-          issuer,
-          secret,
-          expiresIn,
-        },
-      );
-    }
-
-    // Handle the case where userId or expiresIn is falsy
-    throw new Error('userId and expiresIn are required parameters');
+  /**
+   * Sign out (per-device)
+   */
+  async signOut(signOutDto: SignOutDto) {
+    const { userId, deviceId } = signOutDto;
+    const refreshTokenId = await this.refreshTokenIdsStorage.getToken(
+      userId,
+      deviceId,
+    );
+    await this.refreshTokenIdsStorage.invalidate(userId, deviceId);
+    // Optional: blacklist the current refresh token to prevent reuse
+    await this.refreshTokenBlacklist.blacklistToken(refreshTokenId);
   }
 }

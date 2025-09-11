@@ -1,6 +1,7 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestFactory, Reflector } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -14,6 +15,8 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  app.use(cookieParser());
+
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   app.useGlobalPipes(
@@ -26,6 +29,7 @@ async function bootstrap() {
       },
     }),
   );
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   const options = new DocumentBuilder()
     .setTitle('CoffeeScript')

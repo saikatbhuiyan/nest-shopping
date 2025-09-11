@@ -1,9 +1,16 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+} from 'class-validator';
 import { ClientType } from '../enums/cient-type.enum';
 
-export class RefreshTokenDto {
-  @IsNotEmpty()
-  refreshToken: string;
+export class SignOutDto {
+  @IsNumber()
+  @IsPositive()
+  userId: number;
 
   @IsString()
   deviceId?: string = '1234';
