@@ -34,7 +34,6 @@ export class AuthenticationGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-
     if (isPublic) return true;
 
     const authTypes = this.reflector.getAllAndOverride<AuthType[]>(
@@ -42,19 +41,14 @@ export class AuthenticationGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     ) ?? [AuthenticationGuard.defaultAuthType];
 
-    const guards = authTypes
-      .map((type) => this.authTypeGuardMap[type])
-      .flat()
-      .filter(Boolean); // just in case
+    const guards = authTypes.flatMap((type) => this.authTypeGuardMap[type]);
 
     let lastError: unknown = new UnauthorizedException();
 
     for (const guard of guards) {
       try {
         const result = await guard.canActivate(context);
-        if (result) {
-          return true;
-        }
+        if (result) return true;
       } catch (err) {
         lastError = err;
       }

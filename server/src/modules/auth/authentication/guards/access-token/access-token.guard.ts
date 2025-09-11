@@ -21,39 +21,69 @@ export class AccessTokenGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = this.extractTokenFromHeader(request);
-    console.log('token', token);
-    console.log(
-      'request.headers.authorization AccessTokenGuard',
-      request.headers,
-    );
-    console.log(
-      'request.headers.authorization',
-      this.configService.get('jwt.secret'),
-      token,
-      'should match the secret',
-    );
+
+    // Try extracting token from Authorization header (mobile clients)
+    let token = this.extractTokenFromHeader(request);
+
+    // If no header token → try cookies (web clients, per-device session)
+    if (!token) {
+      // Prefer deviceId from headers for consistency
+      const deviceId: string = this.extractDeviceId(request);
+
+      if (!deviceId) {
+        throw new UnauthorizedException(
+          'Device ID missing for web authentication',
+        );
+      }
+
+      token = request.cookies?.[`accessToken_${deviceId}`] as string;
+    }
+
+    console.log(request.cookies);
 
     if (!token) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Access token missing');
     }
 
     try {
       const payload: ActiveUserData = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get('jwt.secret'),
+        secret: this.configService.get<string>('jwt.secret'),
       });
-      console.log('payload', payload);
+
       request.user = payload;
-      console.log('payload', payload);
+      return true;
     } catch (error) {
-      console.error('Error verifying token', error);
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(error, 'Invalid or expired access token');
     }
-    return true;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
-    const [, token] = request.headers.authorization?.split(' ') ?? [];
-    return token;
+    const authHeader = request.headers.authorization;
+    if (!authHeader) return undefined;
+
+    const [type, token] = authHeader.split(' ');
+    return type === 'Bearer' ? token : undefined;
+  }
+
+  private extractDeviceId(req: Request): string | undefined {
+    if (typeof req.headers['x-device-id'] === 'string') {
+      return req.headers['x-device-id'];
+    }
+
+    if (
+      req.body &&
+      typeof (req.body as Record<string, unknown>).deviceId === 'string'
+    ) {
+      return (req.body as Record<string, string>).deviceId;
+    }
+
+    if (
+      req.query &&
+      typeof (req.query as Record<string, unknown>).deviceId === 'string'
+    ) {
+      return (req.query as Record<string, string>).deviceId;
+    }
+
+    return undefined;
   }
 }

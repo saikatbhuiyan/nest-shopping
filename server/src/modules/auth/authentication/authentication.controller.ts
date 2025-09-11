@@ -31,7 +31,6 @@ export class AuthenticationController {
   @Public()
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(RateLimitGuard)
   @RateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -44,6 +43,7 @@ export class AuthenticationController {
   ) {
     const { deviceId, clientType = ClientType.WEB } = signInDto;
     const ip = req.ip;
+
     const { accessToken, refreshToken } = await this.authService.signIn(
       signInDto,
       ip,
@@ -68,16 +68,18 @@ export class AuthenticationController {
   async refreshTokens(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-    @Body()
-    refreshTokenDto: RefreshTokenDto,
+    @Body() refreshTokenDto: RefreshTokenDto,
   ) {
     const { deviceId, clientType = ClientType.WEB } = refreshTokenDto;
+
     const refreshToken =
       clientType === ClientType.WEB
         ? (req.cookies[`refreshToken_${deviceId}`] as string)
         : refreshTokenDto.refreshToken;
 
-    if (!refreshToken) throw new UnauthorizedException('Refresh token missing');
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
 
     const { accessToken, refreshToken: newRefreshToken } =
       await this.authService.refreshTokens({ refreshToken, deviceId });
@@ -97,20 +99,21 @@ export class AuthenticationController {
   }
 
   @Post('sign-out')
-  @UseGuards(RateLimitGuard)
+  @HttpCode(HttpStatus.OK)
   @RateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
     message: 'Too many attempts, try again later',
   })
-  @HttpCode(HttpStatus.OK)
   async signOut(
     @Res({ passthrough: true }) res: Response,
     @Body() signOutDto: SignOutDto,
   ) {
     const { deviceId, clientType = ClientType.WEB } = signOutDto;
-    if (clientType === ClientType.WEB)
+
+    if (clientType === ClientType.WEB) {
       this.cookieService.clearAuthCookies(res, deviceId);
+    }
 
     await this.authService.signOut(signOutDto);
     return { message: 'Signed out successfully' };

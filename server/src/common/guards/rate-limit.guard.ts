@@ -11,6 +11,7 @@ import {
   RateLimitOptions,
 } from '../decorators/rate-limit.decorator';
 import { Request } from 'express';
+import { AuthenticatedRequest } from 'src/modules/auth/interface/active-user-data-interface';
 import { RedisService } from 'src/common/redis/redis.service';
 
 @Injectable()
@@ -49,9 +50,16 @@ export class RateLimitGuard implements CanActivate {
   }
 
   private generateKey(request: Request): string {
-    // Use userId if logged in, else IP
-    const userId = request.ip;
-    const path = request.method + ':' + request.route?.path;
-    return `rate-limit:${userId}:${path}`;
+    // Prefer userId from JWT/session if available
+    const req = request as AuthenticatedRequest;
+    const userId = req.user?.sub;
+
+    // Fall back to client IP if not authenticated
+    const identifier = userId ? `user:${userId}` : `ip:${request.ip}`;
+
+    // Use method + URL path for granularity
+    const path = `${request.method}:${request.originalUrl.split('?')[0]}`;
+
+    return `rate-limit:${identifier}:${path}`;
   }
 }
