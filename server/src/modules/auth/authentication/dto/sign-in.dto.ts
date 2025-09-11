@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
@@ -20,5 +21,6 @@ export class SignInDto {
   deviceId?: string = '1234';
 
   @IsEnum(ClientType)
-  clientType: ClientType = ClientType.WEB;
+  @IsOptional()
+  clientType?: ClientType = ClientType.WEB;
 }

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Req,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { Public } from 'src/common/decorators/public.decorator';
 import { AuthenticationService } from './authentication.service';
@@ -16,8 +17,10 @@ import { SignOutDto } from './dto/sign-out.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import type { Request, Response } from 'express';
 import { ClientType } from './enums/cient-type.enum';
+import { RateLimit } from 'src/common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from 'src/common/guards/rate-limit.guard';
 
-@Public()
+@UseGuards(RateLimitGuard)
 @Controller('authentication')
 export class AuthenticationController {
   constructor(
@@ -25,15 +28,26 @@ export class AuthenticationController {
     private readonly cookieService: CookieService,
   ) {}
 
+  @Public()
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: 'Too many attempts, try again later',
+  })
   async signIn(
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() signInDto: SignInDto,
   ) {
     const { deviceId, clientType = ClientType.WEB } = signInDto;
-    const { accessToken, refreshToken } =
-      await this.authService.signIn(signInDto);
+    const ip = req.ip;
+    const { accessToken, refreshToken } = await this.authService.signIn(
+      signInDto,
+      ip,
+    );
 
     if (clientType === ClientType.WEB) {
       this.cookieService.setAccessToken(res, accessToken, deviceId);
@@ -60,7 +74,7 @@ export class AuthenticationController {
     const { deviceId, clientType = ClientType.WEB } = refreshTokenDto;
     const refreshToken =
       clientType === ClientType.WEB
-        ? (req.cookies[`refreshToken:${deviceId}`] as string)
+        ? (req.cookies[`refreshToken_${deviceId}`] as string)
         : refreshTokenDto.refreshToken;
 
     if (!refreshToken) throw new UnauthorizedException('Refresh token missing');
@@ -83,6 +97,12 @@ export class AuthenticationController {
   }
 
   @Post('sign-out')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: 'Too many attempts, try again later',
+  })
   @HttpCode(HttpStatus.OK)
   async signOut(
     @Res({ passthrough: true }) res: Response,

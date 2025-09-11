@@ -14,6 +14,7 @@ import { RolesGuard } from './authorization/guards/roles/roles.guard';
 import { AuthAuditService } from './authentication/auth-audit.service';
 import { RefreshTokenBlacklist } from './authentication/refresh-token-black-list.storage';
 import { AuthAudit } from './entities/auth-audit.entity';
+import { CookieService } from 'src/common/services/cookie.service';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AuthAudit } from './entities/auth-audit.entity';
     AuthenticationService,
     JwtService,
     AuthAuditService,
+    CookieService,
   ],
   controllers: [AuthenticationController],
 })

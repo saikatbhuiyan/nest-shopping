@@ -49,26 +49,32 @@ export class AuthenticationService {
       }
     }
 
-    const tokens = await this.generateTokens(user, deviceId);
+    const tokens = await this.generateTokens(user, deviceId, ip);
 
-    await this.auditService.logSignInAttempt(user.id, ip, deviceId, true);
+    // await this.auditService.logSignInAttempt(user.id, ip, deviceId, true);
     return tokens;
   }
 
   /**
    * Generate access + refresh tokens (per-device)
    */
-  async generateTokens(user: User, deviceId: string) {
+  async generateTokens(user: User, deviceId: string, ip?: string) {
     const refreshTokenId = randomUUID();
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { id: user.id, email: user.email, roles: [Role.Admin] },
-        { expiresIn: this.configService.get<number>('jwt.accessTokenTtl') },
+        {
+          secret: this.configService.get<string>('jwt.secret'),
+          expiresIn: this.configService.get<number>('jwt.accessTokenTtl'),
+        },
       ),
       this.jwtService.signAsync(
         { refreshTokenId, deviceId },
-        { expiresIn: this.configService.get<number>('jwt.refreshTokenTtl') },
+        {
+          secret: this.configService.get<string>('jwt.secret'),
+          expiresIn: this.configService.get<number>('jwt.refreshTokenTtl'),
+        },
       ),
     ]);
 
@@ -80,6 +86,7 @@ export class AuthenticationService {
       user.id,
       deviceId,
       refreshTokenId,
+      ip,
     );
 
     return { accessToken, refreshToken };

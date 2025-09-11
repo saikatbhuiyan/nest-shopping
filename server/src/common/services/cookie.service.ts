@@ -21,7 +21,8 @@ export class CookieService {
    * Set per-device access token cookie
    */
   setAccessToken(res: Response, token: string, deviceId: string) {
-    res.cookie(`accessToken:${deviceId}`, token, {
+    console.log(token, deviceId);
+    res.cookie(`accessToken_${deviceId}`, token, {
       httpOnly: true,
       secure: this.isProduction,
       sameSite: this.isProduction ? 'strict' : 'lax',
@@ -33,7 +34,7 @@ export class CookieService {
    * Set per-device refresh token cookie
    */
   setRefreshToken(res: Response, token: string, deviceId: string) {
-    res.cookie(`refreshToken:${deviceId}`, token, {
+    res.cookie(`refreshToken_${deviceId}`, token, {
       httpOnly: true,
       secure: this.isProduction,
       sameSite: this.isProduction ? 'strict' : 'lax',
@@ -45,12 +46,12 @@ export class CookieService {
    * Clear cookies for a specific device
    */
   clearAuthCookies(res: Response, deviceId: string) {
-    res.clearCookie(`accessToken:${deviceId}`, {
+    res.clearCookie(`accessToken_${deviceId}`, {
       httpOnly: true,
       secure: this.isProduction,
       sameSite: this.isProduction ? 'strict' : 'lax',
     });
-    res.clearCookie(`refreshToken:${deviceId}`, {
+    res.clearCookie(`refreshToken_${deviceId}`, {
       httpOnly: true,
       secure: this.isProduction,
       sameSite: this.isProduction ? 'strict' : 'lax',

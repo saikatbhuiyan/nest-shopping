@@ -30,11 +30,13 @@ export class AuthAuditService {
     userId: number,
     deviceId: string,
     refreshTokenId: string,
+    ip?: string,
   ) {
     await this.auditRepository.save({
       userId,
       deviceId,
       refreshTokenId,
+      ip,
       event: 'token_generated',
       timestamp: new Date(),
     });
