@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppConfig, DatabaseConfig } from '../config/config.types';
+import { AppConfig } from '../config/config.types';
 
 @Module({
   imports: [
@@ -9,9 +9,7 @@ import { AppConfig, DatabaseConfig } from '../config/config.types';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const dbConfig = configService.get<AppConfig['database']>(
-          'database',
-        ) as DatabaseConfig;
+        const dbConfig = configService.get<AppConfig['database']>('database');
         return {
           type: 'postgres',
           host: dbConfig.host,

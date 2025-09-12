@@ -1,46 +1,26 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-
 import { Exclude } from 'class-transformer';
+import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
 
-@Entity()
+@Entity('users')
+@Unique(['email'])
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({
-    type: 'varchar',
-    length: 96,
-    nullable: false,
-  })
+  @Column({ length: 96 })
   firstName: string;
 
-  @Column({
-    type: 'varchar',
-    length: 96,
-    nullable: true,
-  })
-  lastName: string;
+  @Column({ length: 96, nullable: true })
+  lastName?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 96,
-    nullable: false,
-    unique: true,
-  })
+  @Column({ length: 96 })
   email: string;
 
+  @Column({ length: 96, nullable: true })
   @Exclude()
-  @Column({
-    type: 'varchar',
-    length: 96,
-    nullable: true,
-  })
   password?: string;
 
+  @Column({ nullable: true })
   @Exclude()
-  @Column({
-    type: 'varchar',
-    nullable: true,
-  })
   googleId?: string;
 }

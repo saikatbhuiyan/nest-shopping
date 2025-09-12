@@ -17,4 +17,10 @@ export default () => ({
     accessTokenTtl: parseInt(process.env.JWT_ACCESS_TOKEN_TTL ?? '3600', 10), // ttl is time to live
     refreshTokenTtl: parseInt(process.env.JWT_REFRESH_TOKEN_TTL ?? '86400', 10),
   },
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
+    username: process.env.REDIS_USERNAME,
+    password: process.env.REDIS_PASSWORD,
+  },
 });
