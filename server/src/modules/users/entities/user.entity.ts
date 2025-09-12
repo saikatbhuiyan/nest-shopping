@@ -1,5 +1,12 @@
 import { Exclude } from 'class-transformer';
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
+import { NotificationSettings } from 'src/modules/notification-settings/entities/notification-settings.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  Unique,
+  OneToOne,
+} from 'typeorm';
 
 @Entity('users')
 @Unique(['email'])
@@ -23,4 +30,19 @@ export class User {
   @Column({ nullable: true })
   @Exclude()
   googleId?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastLoginAt: Date;
+
+  @Column({ nullable: true })
+  lastLoginIp: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ default: false })
+  isLocked: boolean;
+
+  @OneToOne(() => NotificationSettings, (settings) => settings.user)
+  notificationSettings: NotificationSettings;
 }

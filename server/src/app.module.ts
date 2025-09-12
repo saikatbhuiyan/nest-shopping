@@ -15,6 +15,8 @@ import { WrapResponseInterceptor } from './common/interceptors/wrap-response.int
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AuthModule } from './modules/auth/auth.module';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { NotificationSettingsModule } from './modules/notification-settings/notification-settings.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
     DatabaseModule,
     CommonModule,
     AuthModule,
+    NotificationSettingsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
