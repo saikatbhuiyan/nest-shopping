@@ -21,10 +21,19 @@ export interface RedisConfig {
   password?: string;
 }
 
+export interface EmailConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from: string;
+}
+
 export interface AppConfig {
   app_port: number;
   environment: string;
   database: DatabaseConfig;
   jwt: JwtConfig;
   redis: RedisConfig;
+  smtp_mail: EmailConfig;
 }

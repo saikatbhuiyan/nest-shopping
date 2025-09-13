@@ -17,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { NotificationSettingsModule } from './modules/notification-settings/notification-settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { EmailService } from './nodemailer/modules/notifications/email/email.service';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       provide: APP_GUARD,
       useClass: RateLimitGuard,
     },
+    EmailService,
   ],
 })
 export class AppModule {}
