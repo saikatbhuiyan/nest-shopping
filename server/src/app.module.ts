@@ -1,4 +1,3 @@
-import * as Joi from 'joi';
 import * as winston from 'winston';
 import { Module } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
@@ -17,29 +16,18 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { NotificationSettingsModule } from './modules/notification-settings/notification-settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { EmailService } from './nodemailer/modules/notifications/email/email.service';
+import environmentValidation from './config/enviroment.validation';
+
+// Get the current NODE_ENV
+const ENV = process.env.NODE_ENV || 'development';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env.development.local',
+      envFilePath: !ENV ? '.env' : `.env.${ENV}`,
       load: [appConfig],
-      validationSchema: Joi.object({
-        DATABASE_HOST: Joi.string().required(),
-        DATABASE_PORT: Joi.number().default(5432),
-        DATABASE_USER: Joi.string().required(),
-        DATABASE_PASSWORD: Joi.string().required(),
-        DATABASE_NAME: Joi.string().required(),
-        NODE_ENV: Joi.string()
-          .valid('development', 'production', 'test')
-          .default('development'),
-        JWT_SECRET: Joi.string().required(),
-        JWT_TOKEN_AUDIENCE: Joi.string().optional(),
-        JWT_TOKEN_ISSUER: Joi.string().optional(),
-        JWT_ACCESS_TOKEN_TTL: Joi.number().default(3600),
-        JWT_REFRESH_TOKEN_TTL: Joi.number().default(86400),
-      }),
+      validationSchema: environmentValidation,
     }),
     WinstonModule.forRoot({
       transports: [
@@ -91,7 +79,6 @@ import { EmailService } from './nodemailer/modules/notifications/email/email.ser
       provide: APP_GUARD,
       useClass: RateLimitGuard,
     },
-    EmailService,
   ],
 })
 export class AppModule {}

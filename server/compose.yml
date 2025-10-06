@@ -6,16 +6,15 @@ services:
     container_name: auction-db
     restart: always
     env_file:
-      - ./server/.env.dev
+      - .env.development
     environment:
       POSTGRES_USER: ${DATABASE_USER}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
     ports:
-      - "5432:5432" # expose only if you need access from host machine
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # - ./db/init:/docker-entrypoint-initdb.d # optional init scripts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}"]
       interval: 10s
@@ -27,7 +26,7 @@ services:
     container_name: nest_redis
     restart: always
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
       - redis_data:/data
 
@@ -38,4 +37,3 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-

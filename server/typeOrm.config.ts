@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 
 config({
-  path: '.env.development.local',
+  path: '.env.development',
 });
 
 const configService = new ConfigService();
