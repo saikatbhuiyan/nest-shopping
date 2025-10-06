@@ -17,6 +17,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { NotificationSettingsModule } from './modules/notification-settings/notification-settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import environmentValidation from './config/enviroment.validation';
+import { winstonLoggerConfig } from './common/logger/winston-logger';
 
 // Get the current NODE_ENV
 const ENV = process.env.NODE_ENV || 'development';
@@ -29,30 +30,7 @@ const ENV = process.env.NODE_ENV || 'development';
       load: [appConfig],
       validationSchema: environmentValidation,
     }),
-    WinstonModule.forRoot({
-      transports: [
-        // Console transport (always enabled)
-        new winston.transports.Console({
-          level: process.env.LOG_LEVEL || 'info',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(), // structured JSON logs
-          ),
-        }),
-
-        // File transport (rotate logs in prod)
-        new winston.transports.File({
-          filename: 'logs/app.log',
-          level: 'info',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
-          ),
-          maxsize: 5 * 1024 * 1024, // 5MB per file
-          maxFiles: 5,
-        }),
-      ],
-    }),
+    WinstonModule.forRoot(winstonLoggerConfig),
     DatabaseModule,
     CommonModule,
     AuthModule,
