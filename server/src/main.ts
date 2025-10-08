@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import compression from 'compression';
 import {
   ClassSerializerInterceptor,
   Logger,
@@ -19,7 +21,32 @@ async function bootstrap() {
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   const logger = new Logger('Bootstrap');
 
+  // Security
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+        },
+      },
+    }),
+  );
+
+  // CORS
   const configService = app.get(ConfigService);
+  const allowedOrigins = (configService.get<string>('ALLOWED_ORIGINS') ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
+  app.enableCors({
+    origin:
+      allowedOrigins.length > 0 ? allowedOrigins : ['http://localhost:3000'],
+    credentials: true,
+  });
+
+  app.use(compression());
 
   app.use(cookieParser());
 
