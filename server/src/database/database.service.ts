@@ -5,12 +5,12 @@ import { AppConfig } from 'src/config/config.types';
 
 @Injectable()
 export class DatabaseService implements TypeOrmOptionsFactory {
-  constructor(private configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {}
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
     const dbConfig = this.configService.get<AppConfig['database']>('database');
-
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
 
     return {
       type: 'postgres',
@@ -20,37 +20,28 @@ export class DatabaseService implements TypeOrmOptionsFactory {
       password: dbConfig.password,
       database: dbConfig.name,
       autoLoadEntities: true,
-      synchronize: false, // disable in production
+      synchronize: false,
       logging: !isProduction,
 
-      // Connection pooling
       extra: {
-        max: 20, // Maximum pool size
-        min: 5, // Minimum pool size
+        max: 20,
+        min: 5,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
-
-        // Performance optimizations
-        statement_timeout: 10000, // 10s query timeout
+        statement_timeout: 10000,
         query_timeout: 10000,
-
-        // SSL for production
-        // ...(isProduction && {
-        //   ssl: {
-        //     rejectUnauthorized: true,
-        //   },
-        // }),
+        ...(isProduction && {
+          ssl: { rejectUnauthorized: true },
+        }),
       },
 
-      // Query logging for slow queries
       maxQueryExecutionTime: 1000,
 
-      // Read replicas for read-heavy workloads
       replication: isProduction
         ? {
             master: {
               host: this.configService.get('DB_MASTER_HOST'),
-              port: this.configService.get('DB_PORT'),
+              port: Number(this.configService.get('DB_PORT')),
               username: this.configService.get('DB_USER'),
               password: this.configService.get('DB_PASS'),
               database: this.configService.get('DB_NAME'),
@@ -58,7 +49,7 @@ export class DatabaseService implements TypeOrmOptionsFactory {
             slaves: [
               {
                 host: this.configService.get('DB_REPLICA1_HOST'),
-                port: this.configService.get('DB_PORT'),
+                port: Number(this.configService.get('DB_PORT')),
                 username: this.configService.get('DB_USER'),
                 password: this.configService.get('DB_PASS'),
                 database: this.configService.get('DB_NAME'),

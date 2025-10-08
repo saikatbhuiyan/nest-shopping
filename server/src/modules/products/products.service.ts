@@ -3,19 +3,18 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Repository, DataSource } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { priceToCents, centsToPrice } from '../../common/utils/price.util';
-import { ProductsCacheService } from './products.cache.service';
+import { DataSource } from 'typeorm';
 import { Product } from 'src/database/entities/products/product.entity';
+import { priceToCents, centsToPrice } from 'src/common/utils/price.util';
+import { CreateProductDto } from 'src/modules/products/dto/create-product.dto';
+import { UpdateProductDto } from 'src/modules/products/dto/update-product.dto';
+import { ProductsCacheService } from 'src/modules/products/products.cache.service';
+import { ProductsRepository } from 'src/database/repositories/products.repository';
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(Product)
-    private readonly repo: Repository<Product>,
+    private readonly repo: ProductsRepository,
     private readonly dataSource: DataSource,
     private readonly cacheService: ProductsCacheService,
   ) {}
@@ -38,9 +37,7 @@ export class ProductsService {
       return manager.save(Product, product);
     });
 
-    // Invalidate list caches
     await this.cacheService.invalidateAllLists();
-
     return saved;
   }
 
@@ -50,14 +47,11 @@ export class ProductsService {
       if (cached) return cached;
     }
 
-    const p = await this.repo.findOne({ where: { id } });
-    if (!p) throw new NotFoundException('Product not found');
+    const product = await this.repo.findOne({ where: { id } });
+    if (!product) throw new NotFoundException('Product not found');
 
-    if (useCache) {
-      await this.cacheService.setProduct(id, p);
-    }
-
-    return p;
+    if (useCache) await this.cacheService.setProduct(id, product);
+    return product;
   }
 
   async update(
@@ -65,22 +59,22 @@ export class ProductsService {
     dto: UpdateProductDto,
     actorId?: string,
   ): Promise<Product> {
-    const p = await this.findOne(id, false);
+    const product = await this.findOne(id, false);
 
-    if (dto.price !== undefined) p.priceCents = priceToCents(dto.price);
-    if (dto.name !== undefined) p.name = dto.name;
-    if (dto.description !== undefined) p.description = dto.description;
-    if (dto.pictureUrl !== undefined) p.pictureUrl = dto.pictureUrl;
+    if (dto.price !== undefined) product.priceCents = priceToCents(dto.price);
+    if (dto.name !== undefined) product.name = dto.name;
+    if (dto.description !== undefined) product.description = dto.description;
+    if (dto.pictureUrl !== undefined) product.pictureUrl = dto.pictureUrl;
     if (dto.quantityInStock !== undefined)
-      p.quantityInStock = dto.quantityInStock;
-    if (dto.publicId !== undefined) p.publicId = dto.publicId;
-    p.updatedBy = actorId ?? p.updatedBy;
+      product.quantityInStock = dto.quantityInStock;
+    if (dto.publicId !== undefined) product.publicId = dto.publicId;
+
+    product.updatedBy = actorId ?? product.updatedBy;
 
     const updated = await this.dataSource.transaction(async (manager) => {
-      return manager.save(p);
+      return manager.save(product);
     });
 
-    // Invalidate caches
     await Promise.all([
       this.cacheService.invalidateProduct(id),
       this.cacheService.invalidateAllLists(),
@@ -99,15 +93,13 @@ export class ProductsService {
       });
 
       if (!prod) throw new NotFoundException('Product not found');
-      if (prod.quantityInStock < amount) {
+      if (prod.quantityInStock < amount)
         throw new BadRequestException('insufficient stock');
-      }
 
       prod.quantityInStock -= amount;
       await manager.save(prod);
     });
 
-    // Invalidate product cache after stock change
     await this.cacheService.invalidateProduct(productId);
   }
 
@@ -124,7 +116,6 @@ export class ProductsService {
     const limit = Math.min(opts.limit ?? 20, 100);
     const cacheKey = { ...opts, page, limit };
 
-    // Check cache first
     if (opts.useCache !== false) {
       const cached: {
         items: Product[];
@@ -138,7 +129,6 @@ export class ProductsService {
     const qb = this.repo.createQueryBuilder('p').where('p.deleted_at IS NULL');
 
     if (opts.q) {
-      // For production: use tsvector search
       qb.andWhere(`p.search_vector @@ plainto_tsquery('simple', :q)`, {
         q: opts.q,
       })
@@ -150,41 +140,35 @@ export class ProductsService {
     }
 
     if (opts.brand) qb.andWhere('p.brand_name = :brand', { brand: opts.brand });
-    if (opts.minPrice !== undefined) {
+    if (opts.minPrice !== undefined)
       qb.andWhere('p.price_cents >= :min', {
         min: Math.round(opts.minPrice * 100),
       });
-    }
-    if (opts.maxPrice !== undefined) {
+    if (opts.maxPrice !== undefined)
       qb.andWhere('p.price_cents <= :max', {
         max: Math.round(opts.maxPrice * 100),
       });
-    }
 
-    if (!opts.q) {
-      qb.orderBy('p.created_at', 'DESC');
-    }
+    if (!opts.q) qb.orderBy('p.created_at', 'DESC');
 
     qb.skip((page - 1) * limit).take(limit);
 
     const [items, total] = await qb.getManyAndCount();
-
     const mapped = items.map((i) => ({
       ...i,
       price: centsToPrice(i.priceCents),
     }));
 
     const result = { items: mapped, total, page, limit };
-
-    // Cache the result
     await this.cacheService.setList(cacheKey, result);
-
     return result;
   }
 
   async bulkUpdatePrices(
     updates: Array<{ id: string; price: number }>,
   ): Promise<void> {
+    if (!updates.length) return;
+
     await this.dataSource.transaction(async (manager) => {
       for (const update of updates) {
         await manager.update(Product, update.id, {
@@ -193,25 +177,15 @@ export class ProductsService {
       }
     });
 
-    // Invalidate all affected caches
     await Promise.all([
       ...updates.map((u) => this.cacheService.invalidateProduct(u.id)),
       this.cacheService.invalidateAllLists(),
     ]);
   }
 
-  async remove(id: string): Promise<void> {
-    const p = await this.findOne(id);
-    await this.dataSource.transaction(async (manager) => {
-      await manager.softRemove(p);
-    });
-  }
-
   async softDelete(id: string): Promise<void> {
     const result = await this.repo.softDelete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException('Product not found');
-    }
+    if (result.affected === 0) throw new NotFoundException('Product not found');
 
     await Promise.all([
       this.cacheService.invalidateProduct(id),
