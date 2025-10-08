@@ -8,6 +8,7 @@ import {
   DeleteDateColumn,
   ManyToOne,
   VersionColumn,
+  Check,
 } from 'typeorm';
 import { Brand } from './brand.entity';
 import { ProductType } from './product-type.entity';
@@ -15,6 +16,8 @@ import { ProductType } from './product-type.entity';
 @Entity({ name: 'products' })
 @Index('idx_products_price_cents', ['priceCents'])
 @Index('idx_products_quantity_in_stock', ['quantityInStock'])
+@Check(`"priceCents" >= 0`)
+@Check(`"quantityInStock" >= 0`)
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

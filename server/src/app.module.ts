@@ -1,4 +1,3 @@
-import * as winston from 'winston';
 import { Module } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
 import { ConfigModule } from '@nestjs/config';
@@ -21,6 +20,7 @@ import { winstonLoggerConfig } from './common/logger/winston-logger';
 import { ProductsModule } from './modules/products/products.module';
 import { BrandsModule } from './modules/brands/brands.module';
 import { ProductTypesModule } from './modules/product-types/product-types.module';
+import { TerminusModule } from '@nestjs/terminus';
 
 // Get the current NODE_ENV
 const ENV = process.env.NODE_ENV || 'development';
@@ -42,6 +42,7 @@ const ENV = process.env.NODE_ENV || 'development';
     ProductsModule,
     BrandsModule,
     ProductTypesModule,
+    TerminusModule,
   ],
   controllers: [AppController],
   providers: [

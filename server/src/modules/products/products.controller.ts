@@ -1,142 +1,85 @@
 import {
   Controller,
   Post,
-  Get,
-  Patch,
-  Delete,
   Body,
+  Get,
   Param,
+  Patch,
   Query,
   ParseUUIDPipe,
-  UsePipes,
-  ValidationPipe,
-  HttpCode,
+  UseInterceptors,
   HttpStatus,
+  HttpCode,
+  Delete,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiResponse,
-  ApiOperation,
-  ApiQuery,
-  ApiParam,
-} from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductResponseDto } from './dto/product-response.dto';
+import { LoggingInterceptor } from '../../common/interceptors/logging.interceptor';
+import { MetricsInterceptor } from '../../common/interceptors/metrics.interceptor';
+import { ApiMetrics } from '../../common/decorators/api-metrics.decorator';
 
-@ApiTags('Products')
 @Controller('products')
-@UsePipes(new ValidationPipe({ transform: true }))
+@UseInterceptors(LoggingInterceptor, MetricsInterceptor)
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly svc: ProductsService) {}
 
-  // Create a product
   @Post()
-  @ApiOperation({ summary: 'Create a new product' })
-  @ApiResponse({
-    status: 201,
-    description: 'Product created successfully',
-    type: ProductResponseDto,
-  })
-  async create(@Body() dto: CreateProductDto) {
-    const product = await this.productsService.create(dto);
-    return { success: true, data: product };
+  @HttpCode(HttpStatus.CREATED)
+  @ApiMetrics('products.create')
+  create(@Body() dto: CreateProductDto) {
+    return this.svc.create(dto);
   }
 
-  // Get all products (with search, filters, pagination)
-  @Get()
-  @ApiOperation({
-    summary: 'List products with optional search, filters, and pagination',
-  })
-  @ApiQuery({ name: 'q', required: false, description: 'Search query' })
-  @ApiQuery({
-    name: 'brand',
-    required: false,
-    description: 'Filter by brand name',
-  })
-  @ApiQuery({
-    name: 'minPrice',
-    required: false,
-    description: 'Minimum price filter',
-  })
-  @ApiQuery({
-    name: 'maxPrice',
-    required: false,
-    description: 'Maximum price filter',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    description: 'Page number',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Page size',
-    example: 20,
-  })
-  @ApiResponse({ status: 200, description: 'List of products with pagination' })
-  async findAll(
-    @Query('q') q?: string,
-    @Query('brand') brand?: string,
-    @Query('minPrice') minPrice?: number,
-    @Query('maxPrice') maxPrice?: number,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
-    const result = await this.productsService.search({
-      q,
-      brand,
-      minPrice,
-      maxPrice,
-      page,
-      limit,
-    });
-    return { success: true, ...result };
-  }
-
-  // Get a single product by ID
   @Get(':id')
-  @ApiOperation({ summary: 'Retrieve a single product by its ID' })
-  @ApiParam({ name: 'id', description: 'UUID of the product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product found',
-    type: ProductResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    const product = await this.productsService.findOne(id);
-    return { success: true, data: product };
+  @ApiMetrics('products.findOne')
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.svc.findOne(id);
   }
 
-  // Update a product by ID
   @Patch(':id')
-  @ApiOperation({ summary: 'Update an existing product by ID' })
-  @ApiParam({ name: 'id', description: 'UUID of the product to update' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product updated successfully',
-    type: ProductResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async update(
+  @ApiMetrics('products.update')
+  update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateProductDto,
   ) {
-    const updated = await this.productsService.update(id, dto);
-    return { success: true, data: updated };
+    return this.svc.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a product by ID (soft delete ready)' })
-  @ApiParam({ name: 'id', description: 'UUID of the product to delete' })
-  @ApiResponse({ status: 204, description: 'Product deleted successfully' })
-  async remove(@Param('id', new ParseUUIDPipe()) id: string) {
-    await this.productsService.remove(id);
+  @ApiMetrics('products.softDelete')
+  async softDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    await this.svc.softDelete(id);
+  }
+
+  @Post(':id/reserve')
+  @ApiMetrics('products.reserve')
+  async reserveStock(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('amount') amount: number,
+  ) {
+    await this.svc.reserveStock(id, amount);
     return { success: true };
+  }
+
+  @Get()
+  @ApiMetrics('products.search')
+  list(
+    @Query('q') q?: string,
+    @Query('brand') brand?: string,
+    @Query('minPrice') minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.svc.search({
+      q,
+      brand,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 }

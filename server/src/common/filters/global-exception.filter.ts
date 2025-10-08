@@ -11,6 +11,7 @@ import { ApiResponse } from '../types';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { ConfigService } from '@nestjs/config';
+import { QueryFailedError } from 'typeorm';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -46,6 +47,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         if (Array.isArray(obj.message)) errors = obj.message as Array<string>;
       } else {
         message = 'Error';
+      }
+    } else if (exception instanceof QueryFailedError) {
+      status = HttpStatus.BAD_REQUEST;
+      message = 'Database query failed';
+      errors = exception.stack ? [exception.stack] : undefined;
+
+      // Handle specific DB errors
+      const error = exception as unknown;
+      if (typeof error === 'object' && error !== null && 'code' in error) {
+        const code = (error as { code: string }).code;
+        if (code === '23505') {
+          message = 'Duplicate entry';
+        } else if (code === '23503') {
+          message = 'Foreign key constraint violation';
+        }
       }
     } else if (exception instanceof Error) {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -83,6 +99,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       stack: exception instanceof Error ? exception.stack : undefined,
       timestamp,
     });
+
+    this.logger.error(
+      `${request.method} ${request.url} - ${status} - ${message}`,
+      exception instanceof Error ? exception.stack : undefined,
+    );
 
     response.status(status).json(apiResponse);
   }
