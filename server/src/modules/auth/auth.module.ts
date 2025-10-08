@@ -3,7 +3,7 @@ import { HashingService } from './hashing/hashing.service';
 import { BcryptService } from './hashing/bcrypt.service';
 import { AuthenticationController } from './authentication/authentication.controller';
 import { AuthenticationService } from './authentication/authentication.service';
-import { User } from '../users/entities/user.entity';
+import { User } from '../../database/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { APP_GUARD } from '@nestjs/core';
@@ -13,7 +13,7 @@ import { RefreshTokenIdsStorage } from './authentication/refresh-token-ids.stora
 import { RolesGuard } from './authorization/guards/roles/roles.guard';
 import { AuthAuditService } from './authentication/auth-audit.service';
 import { RefreshTokenBlacklist } from './authentication/refresh-token-black-list.storage';
-import { AuthAudit } from './entities/auth-audit.entity';
+import { AuthAudit } from '../../database/entities/auth-audit.entity';
 import { CookieService } from 'src/common/services/cookie.service';
 
 @Module({

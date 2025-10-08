@@ -1,5 +1,5 @@
 import { Exclude } from 'class-transformer';
-import { NotificationSettings } from 'src/modules/notification-settings/entities/notification-settings.entity';
+import { NotificationSettings } from 'src/database/entities/notification-settings.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

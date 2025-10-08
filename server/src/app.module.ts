@@ -18,6 +18,9 @@ import { NotificationSettingsModule } from './modules/notification-settings/noti
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import environmentValidation from './config/enviroment.validation';
 import { winstonLoggerConfig } from './common/logger/winston-logger';
+import { ProductsModule } from './modules/products/products.module';
+import { BrandsModule } from './modules/brands/brands.module';
+import { ProductTypesModule } from './modules/product-types/product-types.module';
 
 // Get the current NODE_ENV
 const ENV = process.env.NODE_ENV || 'development';
@@ -36,6 +39,9 @@ const ENV = process.env.NODE_ENV || 'development';
     AuthModule,
     NotificationSettingsModule,
     NotificationsModule,
+    ProductsModule,
+    BrandsModule,
+    ProductTypesModule,
   ],
   controllers: [AppController],
   providers: [
