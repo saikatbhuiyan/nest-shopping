@@ -42,7 +42,22 @@ $ npm run start:dev
 
 # production mode
 $ npm run start:prod
+
 ```
+## Migrate and run the project
+
+```bash
+# development
+$ npm run typeorm:create -name=CreateProductsTables
+
+# watch mode
+$ npm run start:dev
+
+# production mode
+$ npm run start:prod
+```
+
+
 
 ## Run tests
 
